@@ -1,0 +1,36 @@
+root = '.'
+tmp_dir = 'bin'
+
+[build]
+cmd = 'go build -o bin/app main.go'
+bin = './bin/app'
+full_bin = ''
+args_bin = []
+include_ext = ['go']
+exclude_dir = ['bin', 'tests']
+include_dir = []
+exclude_file = []
+exclude_regex = ['_test.go']
+exclude_unchanged = false
+follow_symlink = false
+delay = 1000
+stop_on_error = true
+send_interrupt = false
+kill_delay = 0
+
+[color]
+main = 'magenta'
+watcher = 'cyan'
+build = 'yellow'
+runner = 'green'
+app = ''
+
+[log]
+time = false
+
+[misc]
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = false
+
