@@ -1,0 +1,37 @@
+name: Docker image build
+on:
+  push:
+    branches: [master]
+    paths:
+      - app/**
+  pull_request:
+    paths:
+      - app/**
+
+jobs:
+  build-images:
+    name: Build docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test-app
+        run: make build
+        working-directory: app
+
+      - name: Login to Quay
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: quay.csssr.cloud
+          username: csssr+github_devops_test_app
+          password: ${{ secrets.QUAY_REGISTRY_PASSWORD }}
+
+      - name: Publish test-app
+        run: make publish
+        if: github.event_name == 'push'
+        working-directory: app

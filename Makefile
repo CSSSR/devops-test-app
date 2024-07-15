@@ -1,11 +1,15 @@
 
+.PHONY: publish-app start-app deploy
+
+HELM=$(shell which helm3 2>/dev/null || which helm)
 BRANCH ?= master
 
-build-app:
-	docker build app --tag quay.csssr.cloud/csssr/test-app:$(BRANCH)
-	docker push quay.csssr.cloud/csssr/test-app:$(BRANCH)
+start-app:
+	$(MAKE) -C app start
 
-HELM ?= helm3
+publish-app:
+	$(MAKE) -C app build version=$(BRANCH)
+	$(MAKE) -C app publish version=$(BRANCH)
 
 deploy:
-	$(HELM) upgrade --install my-app-$(BRANCH) chart --set image.tag=$(BRANCH) --set ingress.host=$(BRANCH).my-app.com
+	$(HELM) upgrade --install my-app-$(BRANCH) chart --set image.tag=$(BRANCH) --set ingress.host=$(BRANCH).csssr.cloud
