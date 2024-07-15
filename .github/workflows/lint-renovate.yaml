@@ -1,0 +1,19 @@
+name: Lint renovate configuration
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .renovaterc
+      - ".github/workflows/lint-renovate.yaml"
+  pull_request:
+    paths:
+      - .renovaterc
+      - ".github/workflows/lint-renovate.yaml"
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v1.0.1
