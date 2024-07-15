@@ -12,4 +12,4 @@ publish-app:
 	$(MAKE) -C app publish version=$(BRANCH)
 
 deploy:
-	$(HELM) upgrade --install my-app-$(BRANCH) chart --set image.tag=$(BRANCH) --set ingress.host=$(BRANCH).csssr.cloud
+	$(HELM) upgrade --install my-app-$(BRANCH) chart --set image.tag=$(BRANCH) --set ingress.host=$(BRANCH).my-app.com
