@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -36,12 +36,12 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	fileBytes, err := ioutil.ReadAll(file)
+	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		log.Fatalf("Error reading file %v", err)
 	}
 
-	ioutil.WriteFile(config.ImagePath, fileBytes, os.FileMode(0600))
+	os.WriteFile(config.ImagePath, fileBytes, os.FileMode(0600))
 
 	log.Println(aurora.Cyan("Successfully Uploaded File"))
 	fmt.Fprintf(w, "Successfully Uploaded File\n")
