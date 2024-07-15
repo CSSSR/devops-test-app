@@ -22,12 +22,18 @@ curl http://my-app.com/image -o image.jpg
 - 100% uptime
 - Возможность делать несколько релизов для разных веток в один неймспейс (для тестирования)
 
+## Локальный запуск приложения
+
+```sh
+make start-app
+```
+
 ## Деплой
 
 Сборка
 
 ```sh
-make build BRANCH=master
+make publish-app BRANCH=master
 ```
 
 Деплой helm чарта (используется helm 3)
