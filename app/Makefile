@@ -8,7 +8,7 @@ $(GOBIN)/air:
 	go install github.com/air-verse/air@latest
 
 start: $(GOBIN)/air
-	air
+	$(GOBIN)/air
 
 build:
 	docker build . --tag quay.csssr.cloud/csssr/test-app:$(version)
