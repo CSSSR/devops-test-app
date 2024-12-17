@@ -1,7 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ .Release.Name }}
+  name: ingress-{{ .Release.Name }}
+  annotations:
+  {{- if .Values.ingress.annotations }}
+  {{- range $key, $value := .Values.ingress.annotations }}
+      {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
+  {{- if and .Values.ingress.tls.enabled .Values.ingress.tls.hasIssuerAnnotation }}
+  {{- range $key, $value := .Values.ingress.tls.issuerAnnotation }}
+      {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
 spec:
   ingressClassName: nginx
   rules:
@@ -12,6 +23,10 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}
+                name: service-{{ .Release.Name }}
                 port:
-                  number: 80
+                  number: 8080
+  tls:
+    - hosts:
+      - {{ .Values.ingress.host }}
+      secretName: tls-ingress-{{ .Release.Name }}

@@ -1,32 +1,65 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: app-{{ .Release.Name }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.deployment.replicas }}
   selector:
     matchLabels:
-      app: my-app
+      app: my-app-{{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: my-app
+        app: my-app-{{ .Release.Name }}
     spec:
       containers:
         - name: my-app
-          image: quay.csssr.cloud/csssr/test-app:{{ .Values.image.tag }}
-          imagePullPolicy: Always
+          image: {{ .Values.image.name }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.deployment.resources | nindent 12 }}
           env:
             - name: PORT
-              value: "80"
-            - name: IMAGE_PATH
-              value: /data/image
+              value: "8080"
+            - name: REDIS_HOST
+              value: "{{ .Release.Name }}-redis-master"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_DB
+              value: "0"
+            - name: MUTEX-TTL
+              value: "30s"
+            - name: MUTEX-WAITING-PERIOD
+              value: "10s"
           ports:
-            - containerPort: 80
-          volumeMounts:
-            - name: data
-              mountPath: /data
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: {{ .Release.Name }}
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz/liveness
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz/readiness
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
+      imagePullSecrets:
+        {{- range .Values.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: my-app-{{ .Release.Name }}
+                topologyKey: "kubernetes.io/hostname"

@@ -1,4 +1,5 @@
-name: Docker image build
+name: Docker Build and Helm Deploy
+
 on:
   push:
     branches: [master]
@@ -7,31 +8,135 @@ on:
   pull_request:
     paths:
       - app/**
+  workflow_dispatch: # for manual undeploy action
 
 jobs:
-  build-images:
-    name: Build docker image
+  create-tag:
+    name: Create Git Tag
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Determine Tag
+        id: create_tag
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
+            TAG_PREFIX="release-v"
+            # Получаем последний релизный тег
+            LATEST_TAG=$(git tag --list "${TAG_PREFIX}*" | sort -r | head -n 1)
+            if [ -z "$LATEST_TAG" ]; then
+              NEW_TAG="${TAG_PREFIX}1-0"
+            else
+              VERSION=$(echo "$LATEST_TAG" | sed "s/^${TAG_PREFIX}//")
+              MAJOR=$(echo "$VERSION" | cut -d- -f1)
+              MINOR=$(echo "$VERSION" | cut -d- -f2)
+              NEW_TAG="${TAG_PREFIX}${MAJOR}.$((MINOR + 1))"
+            fi
+          else
+            NEW_TAG=$(echo "${{ github.head_ref }}" | sed 's|/|-|g' | sed 's|[^a-zA-Z0-9-]|-|g' | tr '[:upper:]' '[:lower:]')
+          fi
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
+          echo "::set-output name=NEW_TAG::$NEW_TAG"
+
+      - name: Push New Tag (Only for Master)
+        if: github.ref == 'refs/heads/master'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+          git push origin "$NEW_TAG"
+        env:
+          NEW_TAG: ${{ env.NEW_TAG }}
+
+  build-and-publish:
+    name: Build and Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: create-tag
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build test-app
-        run: make build
-        working-directory: app
-
       - name: Login to Quay
-        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: quay.csssr.cloud
-          username: csssr+github_devops_test_app
+          registry: ${{ vars.QUAY_REGISTRY }}
+          username: ${{ vars.QUAY_REGISTRY_USER }}
           password: ${{ secrets.QUAY_REGISTRY_PASSWORD }}
 
-      - name: Publish test-app
-        run: make publish
-        if: github.event_name == 'push'
-        working-directory: app
+      - name: Build and Publish App
+        run: |
+          TAG=${{ needs.create-tag.outputs.NEW_TAG }}
+          echo "Using tag: $TAG"
+          make publish-app \
+            BRANCH=$TAG \
+            DOCKER_REGISTRY=${{ secrets.QUAY_REGISTRY }}
+        env:
+          TAG: ${{ needs.create-tag.outputs.NEW_TAG }}
+#
+#  deploy:
+#    name: Deploy with Helm
+#    runs-on: ubuntu-latest
+#    needs: build-and-publish
+#    steps:
+#      - name: Checkout Repository
+#        uses: actions/checkout@v4
+#
+#      - name: Install Helm
+#        uses: azure/setup-helm@v4.2.0
+#        with:
+#          version: 'latest'
+#
+#      - name: Login to Quay
+#        uses: docker/login-action@v3
+#        with:
+#          registry: ${{ vars.QUAY_REGISTRY }}
+#          username: ${{ vars.QUAY_REGISTRY_USER }}
+#          password: ${{ secrets.QUAY_REGISTRY_PASSWORD }}
+#
+#      - name: Deploy Application
+#        run: |
+#          TAG=${{ needs.create-tag.outputs.NEW_TAG }}
+#          echo "Deploying with tag: $TAG"
+#          if [[ "$TAG" == release-v* ]]; then
+#            REPLICAS=2
+#            IMAGE_PULL_POLICY=IfNotPresent
+#          else
+#            REPLICAS=1
+#            IMAGE_PULL_POLICY=Always
+#          fi
+#          echo "Replicas: $REPLICAS"
+#          make deploy \
+#            BRANCH=$TAG \
+#            DOCKER_REGISTRY=${{ secrets.QUAY_REGISTRY }} \
+#            IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY}
+#            REPLICAS=$REPLICAS \
+#            ROOT_DOMAIN_NAME=${{ vars.ROOT_DOMAIN_NAME }}
+#        env:
+#          TAG: ${{ needs.create-tag.outputs.NEW_TAG }}
+#
+#  undeploy:
+#    name: Undeploy Application
+#    runs-on: ubuntu-latest
+#    if: github.event_name == 'workflow_dispatch' # Только для ручного запуска
+#    steps:
+#      - name: Checkout Repository
+#        uses: actions/checkout@v4
+#
+#      - name: Install Helm
+#        uses: azure/setup-helm@v4.2.0
+#        with:
+#          version: 'latest'
+#
+#      - name: Undeploy Application
+#        run: |
+#          TAG=${{ github.event.inputs.tag }}
+#          if [[ "$TAG" == "" ]]; then
+#            echo "Error: Tag is required for undeploy"
+#            exit 1
+#          fi
+#          echo "Undeploying application with tag: $TAG"
+#          make undeploy BRANCH=$TAG

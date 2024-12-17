@@ -1,5 +1,77 @@
 image:
+  name: quay.csssr.cloud/csssr/test-app
   tag: master
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - custom-registry-pull-secret
+serviceAccount:
+  name: csssr-test-app-sa
 
 ingress:
   host: my-app.com
+  annotations: []
+  tls:
+    enabled: true
+    hasIssuerAnnotation: true
+    issuerAnnotation:
+      cert-manager.io/cluster-issuer: letsencrypt-cluster-issuer
+
+deployment:
+  replicas: 2
+  StrategyType: RollingUpdate
+  RollingUpdateStrategy:
+    max:
+      unavailable: 25
+      surge: 25
+  resources:
+    requests:
+      cpu: "150m"
+      memory: "192Mi"
+    limits:
+      cpu: "150m"
+      memory: "192Mi"
+  envs:
+    - REDIS_HOST: "redis-master"
+    - REDIS_PORT: "6379"
+
+redis:
+  architecture: standalone
+
+  auth:
+    enabled: false
+    sentinel: false
+
+  commonConfiguration: |-
+    # Enable AOF https://redis.io/topics/persistence#append-only-file
+    appendonly yes
+    # Do not fsync, let the OS manage writing to disk
+    appendfsync no
+
+    # Disable RDB persistence, AOF persistence already enabled.
+    save ""
+    
+
+  serviceAccount:
+    create: false
+
+  master:
+    disableCommands: [ ]
+    containerPorts:
+      redis: 6379
+
+    persistence:
+      enabled: true
+      storageClass: "common-aws-esb-storage-class"
+      accessModes:
+        - ReadWriteOnce
+      size: 256Mi
+
+    serviceAccount:
+      create: false
+      name: csssr-test-app-sa
+    pdb:
+      create: false
+    # charts/redis/charts/common/templates/_resources.tpl
+    resourcesPreset: "nano"
+    resources: { }
