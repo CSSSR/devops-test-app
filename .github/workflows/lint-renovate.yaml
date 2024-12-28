@@ -16,4 +16,4 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v1.1.0
+      - uses: suzuki-shunsuke/github-action-renovate-config-validator@v1.1.1
