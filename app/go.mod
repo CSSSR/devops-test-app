@@ -1,5 +1,5 @@
 module github.com/CSSSR/my-app
 
-go 1.26.2
+go 1.26.4
 
 require github.com/logrusorgru/aurora/v4 v4.0.0
